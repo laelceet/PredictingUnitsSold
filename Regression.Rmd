@@ -1,0 +1,142 @@
+---
+title: "explore"
+author: "Stephanie Little"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#libs
+library(car)
+library(dplyr)
+library(MASS) 
+library(lmtest)
+library(ggcorrplot)
+```
+```{r}
+data = read.csv("clean_clothing-1.csv")
+head(data)
+```
+
+```{r}
+set.seed(42)
+sample <- sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob=c(0.8,0.2))
+train  <- data[sample, ]
+print(nrow(train))
+test   <- data[!sample, ]
+print(nrow(test))
+```
+
+```{r}
+corrr <- subset(train, select=-c(units_sold, product_color, badge_fast_shipping, badges_count))
+corr <- round(cor(corrr),1)
+ggcorrplot(corr, lab = TRUE)
+library(car)
+```
+
+```{r}
+model <- lm(units_sold ~ price+uses_ad_boosts+rating+rating_count+rating_five_count+rating_four_count+rating_three_count+rating_two_count+rating_one_count+badges_count+badge_local_product+badge_product_quality+badge_fast_shipping+product_color+product_variation_inventory+shipping_option_price+countries_shipped_to+has_urgency_banner+merchant_rating_count+merchant_rating, data=train)
+summary(model)
+```
+
+```{r}
+colors <- lm(units_sold ~ product_color, data=train)
+summary(colors)
+```
+
+```{r}
+reduced <- stepAIC(model, direction="backward")
+summary(reduced)
+```
+
+```{r}
+quad <- lm(units_sold ~uses_ad_boosts+rating_count+rating_five_count+rating_four_count+rating_three_count+rating_two_count+merchant_rating_count+I(rating_count^2)+I(rating_five_count^2)+I(rating_four_count^2)+I(rating_three_count^2)+I(rating_two_count^2)+I(merchant_rating_count^2), data=train)
+summary(quad)
+```
+
+```{r}
+reduced_quad <- stepAIC(quad, direction="backward")
+summary(reduced_quad)
+```
+
+```{r}
+unique_values <- unique(data[["units_sold"]])
+cat("Unique values in units sold are:", unique_values, "\n")
+
+predicted_values <- predict(reduced_quad, newdata = data)
+
+rounded_values <- sapply(predicted_values, function(x) {
+  nearest_value <- unique_values[which.min(abs(unique_values - x))]
+  return(nearest_value)
+})
+orig_values = data[["units_sold"]]
+round <- data.frame(rounded=rounded_values, original = orig_values, not_rounded=predicted_values)
+```
+
+```{r}
+
+rsquared_test <- 1 - sum((test$units_sold - predicted_values)^2) / sum((test$units_sold - mean(test$units_sold))^2)
+rsquared_test
+```
+
+
+```{r}
+write.csv(round, file = "C:\\Users\\sal\\Downloads\\Downloads\\round.csv", row.names = FALSE)
+```
+
+
+WITHOUT RATINGS
+
+```{r}
+model2 <- lm(units_sold ~ price+uses_ad_boosts+rating+badges_count+badge_local_product+badge_product_quality+badge_fast_shipping+product_color+product_variation_inventory+shipping_option_price+countries_shipped_to+has_urgency_banner+merchant_rating_count+merchant_rating, data=train)
+summary(model2)
+```
+
+```{r}
+reduced2 <- stepAIC(model2, direction="backward")
+summary(reduced2)
+```
+
+```{r}
+quad2 <- lm(units_sold ~ product_variation_inventory+shipping_option_price+countries_shipped_to+merchant_rating_count+merchant_rating+I(product_variation_inventory^2)+I(shipping_option_price^2)+I(countries_shipped_to^2)+I(merchant_rating_count^2)+I(merchant_rating_count^2), data=train)
+summary(quad2)
+```
+
+```{r}
+reduced_quad2 <- stepAIC(quad2, direction="backward")
+summary(reduced_quad2)
+```
+
+
+```{r}
+unique_values <- unique(data[["units_sold"]])
+
+predicted_values2 <- predict(reduced_quad2, newdata = data)
+
+rounded_values2 <- sapply(predicted_values2, function(x) {
+  nearest_value <- unique_values[which.min(abs(unique_values - x))]
+  return(nearest_value)
+})
+orig_values = data[["units_sold"]]
+round_bad <- data.frame(rounded=rounded_values2, original = orig_values, not_rounded=predicted_values2)
+```
+
+```{r}
+write.csv(round_bad, file = "C:\\Users\\sal\\Downloads\\Downloads\\round_bad.csv", row.names = FALSE)
+```
+
+```{r}
+rsquared_test2 <- 1 - sum((test$units_sold - predicted_values2)^2) / sum((test$units_sold - mean(test$units_sold))^2)
+rsquared_test2
+```
+
+
+
+
+
+
+
+
